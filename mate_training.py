@@ -42,7 +42,7 @@ import GPUtil
 
 import yaml
 import KD_loss, KD_model, KD_admin
-from adv_tools import mask_tokens
+from adv_tools import mask_tokens, mask_tokens_fix
 import mytools
 
 import neptune.new as neptune
@@ -338,6 +338,7 @@ def do_one_task(conf, task):
     tokenizer = AutoTokenizer.from_pretrained(conf['tokenizer'])
 
     sentence1_key, sentence2_key = task_to_keys[task]
+    mask_fix = conf['mask_fix'] if 'mask_fix' in conf else False
 # --------------------------------------------------------- #
     def preprocess_function_adv(examples):
         # Tokenize the texts
@@ -346,7 +347,11 @@ def do_one_task(conf, task):
             (examples[sentence1_key],) if sentence2_key is None else (examples[sentence1_key], examples[sentence2_key])
         )
         result = tokenizer(*texts, padding=padding, max_length=conf['max_length'], truncation=True, return_tensors="np")
-        input_ids_permuted, labels_permuted, mask_permuted = mask_tokens(torch.from_numpy(result['input_ids']).clone(), tokenizer, conf['mlm_prob'])
+
+        if mask_fix:
+            input_ids_permuted, labels_permuted, mask_permuted = mask_tokens_fix(torch.from_numpy(result['input_ids']).clone(), tokenizer, conf['mlm_prob'])
+        else:
+            input_ids_permuted, labels_permuted, mask_permuted = mask_tokens(torch.from_numpy(result['input_ids']).clone(), tokenizer, conf['mlm_prob'])
         result['input_ids_permuted'] = input_ids_permuted
         result['mask_permuted'] = mask_permuted
         result['labels'] = examples['label']
